@@ -7,6 +7,14 @@
 ![Google Drive API](https://img.shields.io/badge/Google%20Drive%20API-4285F4?style=for-the-badge&logo=google-drive&logoColor=white)
 
 ---
+## 📋 Project Overview
+
+This project simulates a **Workforce Management (WFM)** environment for a fictional outsourcing company (**Dosch**) providing technical phone support to Honda mechanics in the US on behalf of **Honda Motors USA**.
+
+The goal was to design a complete WFM reporting infrastructure — from data generation to interactive Power BI dashboards — capable of tracking operational KPIs in a formal, client-ready format.
+
+The project was developed as part of the **Probability and Statistics I (FCP0)** course at **Universidad Cenfotec**, and demonstrates how statistical analysis and data visualization tools can be applied to real-world call center environments.
+---
 
 ## 📸 Screenshots
 
@@ -18,16 +26,6 @@
 
 ## Model 
 ![Project Model](images/project-model.png)
-
----
-
-## 📋 Project Overview
-
-This project simulates a **Workforce Management (WFM)** environment for a fictional outsourcing company (**Dosch**) providing technical phone support to Honda mechanics in the US on behalf of **Honda Motors USA**.
-
-The goal was to design a complete WFM reporting infrastructure — from data generation to interactive Power BI dashboards — capable of tracking operational KPIs in a formal, client-ready format.
-
-The project was developed as part of the **Probability and Statistics I (FCP0)** course at **Universidad Cenfotec**, and demonstrates how statistical analysis and data visualization tools can be applied to real-world call center environments.
 
 ---
 
@@ -228,8 +226,9 @@ The following analyses were conducted using simulated data from the week of **Ja
 
 ## 👤 Authors
 
-**Sebastián Ortiz Vargas** — [LinkedIn](https://linkedin.com/in/sortizvargas0302)  
-**Julio Alberto Salvador Quirós**
+**Sebastián Ortiz Vargas** — [LinkedIn](https://linkedin.com/in/sortizvargas0302)
+
+**Julio Alberto Salvador Quirós** - [LinkedIn](https://www.linkedin.com/in/juliosalvador2302/)
 
 Universidad Cenfotec — Probability and Statistics I (FCP0) · C1-2025
 
