@@ -11,10 +11,13 @@
 ## 📸 Screenshots
 
 ### SLA Metrics Report
-![SLA Report](screenshots/sla-report.png)
+![SLA Report](images/sla-report.png)
 
 ### Absenteeism Report
-![Absenteeism Report](screenshots/abs-report.png)
+![Absenteeism Report](images/abs-report.png)
+
+## Model 
+![Project Model](images/project-model.png)
 
 ---
 
