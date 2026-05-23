@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WFM Generator — Honda Service Desk</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0a0c0f;--bg2:#111418;--bg3:#1a1f26;--bg4:#20262f;
+  --border:#252b34;--border2:#2e3744;
+  --text:#d4dbe8;--dim:#6b7a8f;--bright:#eef2f8;
+  --accent:#00c2ff;--green:#00ff9d;--orange:#ff6b35;--warn:#ffb800;--red:#ff4560;
+  --sidebar-w:220px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;font-size:14px;min-height:100vh;display:flex;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,194,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,194,255,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;z-index:10;
+  flex-shrink:0;
+}
+.sidebar-logo{
+  padding:20px 16px 16px;border-bottom:1px solid var(--border);
+}
+.sidebar-logo .app-name{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;}
+.sidebar-logo .app-sub{font-size:10px;color:var(--dim);margin-top:3px;}
+
+.sidebar-nav{flex:1;padding:8px 0;overflow-y:auto;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 16px;cursor:pointer;
+  transition:all 0.15s;border-left:2px solid transparent;
+  user-select:none;
+}
+.nav-item:hover{background:var(--bg3);color:var(--bright);}
+.nav-item.active{background:rgba(0,194,255,0.07);border-left-color:var(--accent);color:var(--bright);}
+.nav-item.active .nav-icon{color:var(--accent);}
+.nav-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;}
+.nav-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.5px;}
+.nav-badge{margin-left:auto;background:var(--green);color:#000;font-size:9px;font-family:'IBM Plex Mono',monospace;padding:1px 5px;border-radius:3px;font-weight:600;}
+.nav-badge.warn{background:var(--warn);}
+
+.sidebar-profile{
+  padding:14px 16px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.profile-avatar{
+  width:32px;height:32px;border-radius:50%;background:var(--bg3);
+  border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;
+  font-size:13px;overflow:hidden;flex-shrink:0;
+}
+.profile-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.profile-info{overflow:hidden;}
+.profile-name{font-size:11px;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.profile-email{font-size:10px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.profile-status{font-size:9px;font-family:'IBM Plex Mono',monospace;color:var(--dim);margin-top:1px;}
+.profile-status.ok{color:var(--green);}
+
+/* ── MAIN ── */
+.main{margin-left:var(--sidebar-w);flex:1;position:relative;z-index:1;min-height:100vh;}
+.panel{display:none;padding:32px 28px 80px;max-width:900px;}
+.panel.active{display:block;}
+
+/* ── PANEL HEADER ── */
+.panel-header{margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.panel-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+.panel-title{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--bright);}
+.panel-title span{color:var(--accent);}
+.panel-sub{font-size:12px;color:var(--dim);margin-top:5px;}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;inset:0;background:rgba(0,194,255,0.03);pointer-events:none;}
+.card-title{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent);margin-bottom:14px;letter-spacing:1px;}
+
+/* ── FORM ── */
+.field{display:flex;flex-direction:column;gap:6px;}
+.field label{font-size:11px;color:var(--dim);font-weight:500;letter-spacing:0.3px;}
+.field input[type=date],.field input[type=number],.field input[type=text],.field select{
+  background:var(--bg3);border:1px solid var(--border2);border-radius:4px;
+  color:var(--bright);font-family:'IBM Plex Mono',monospace;font-size:13px;
+  padding:8px 10px;outline:none;transition:border-color 0.2s;width:100%;
+}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+.field input[type=range]{accent-color:var(--accent);width:100%;cursor:pointer;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+
+/* ── TOGGLES ── */
+.toggle-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
+.toggle-item{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:9px 11px;cursor:pointer;transition:all 0.15s;user-select:none;}
+.toggle-item.active{border-color:var(--accent);background:rgba(0,194,255,0.06);}
+.toggle-item.active.warn{border-color:var(--warn);background:rgba(255,184,0,0.06);}
+.toggle-item.active.danger{border-color:var(--red);background:rgba(255,69,96,0.06);}
+.toggle-cb{display:none;}
+.toggle-icon{font-size:15px;}
+.toggle-label{font-size:11px;color:var(--dim);line-height:1.3;}
+.toggle-label strong{display:block;color:var(--text);font-size:11px;}
+
+/* ── SECTION LABEL ── */
+.sec{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--dim);margin-bottom:10px;margin-top:20px;display:flex;align-items:center;gap:8px;}
+.sec::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── BUTTONS ── */
+.btn-row{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+.btn{display:flex;align-items:center;gap:7px;padding:9px 16px;border-radius:5px;border:none;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:0.8px;cursor:pointer;transition:all 0.15s;text-transform:uppercase;white-space:nowrap;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{background:#33d1ff;box-shadow:0 0 18px rgba(0,194,255,0.3);}
+.btn-green{background:transparent;color:var(--green);border:1px solid rgba(0,255,157,0.35);}
+.btn-green:hover{background:rgba(0,255,157,0.08);border-color:var(--green);}
+.btn-sheets{background:transparent;color:#34a853;border:1px solid rgba(52,168,83,0.4);}
+.btn-sheets:hover{background:rgba(52,168,83,0.08);border-color:#34a853;}
+.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border2);}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+.btn-danger{background:transparent;color:var(--red);border:1px solid rgba(255,69,96,0.3);}
+.btn-danger:hover{background:rgba(255,69,96,0.08);}
+.btn:disabled{opacity:0.35;cursor:not-allowed;}
+.btn-google{background:white;color:#3c4043;border:1px solid #dadce0;font-family:'IBM Plex Sans',sans-serif;font-weight:500;font-size:12px;letter-spacing:0;padding:9px 16px;}
+.btn-google:hover{background:#f8f9fa;box-shadow:0 1px 6px rgba(0,0,0,0.25);}
+
+/* ── UPLOAD ZONE ── */
+.upload-zone{border:2px dashed var(--border2);border-radius:6px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--bg3);}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(0,194,255,0.04);}
+.upload-zone .uz-icon{font-size:28px;margin-bottom:8px;}
+.upload-zone p{font-size:12px;color:var(--dim);}
+.upload-zone strong{color:var(--accent);}
+.upload-zone .uz-sub{font-size:10px;color:var(--dim);margin-top:4px;}
+
+/* ── AGENT TABLE ── */
+.agent-table-wrap{overflow-x:auto;max-height:340px;overflow-y:auto;margin-top:14px;}
+.agent-table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:11px;}
+.agent-table th{background:var(--bg3);color:var(--dim);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap;font-weight:500;}
+.agent-table td{padding:5px 4px;border-bottom:1px solid var(--border);color:var(--text);}
+.agent-table tr:hover td{background:var(--bg4);}
+.agent-table input{background:transparent;border:1px solid transparent;border-radius:3px;padding:4px 6px;color:var(--bright);font-family:'IBM Plex Mono',monospace;font-size:11px;width:100%;outline:none;transition:border-color 0.15s;}
+.agent-table input:focus{border-color:var(--accent);background:var(--bg3);}
+.del-btn{background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:3px;transition:all 0.15s;}
+.del-btn:hover{color:var(--red);background:rgba(255,69,96,0.1);}
+.agent-count{display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.2);border-radius:4px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--green);}
+.dot-pulse{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* ── PREVIEW TABLE ── */
+.preview-wrap{overflow-x:auto;max-height:220px;overflow-y:auto;margin-top:14px;}
+.preview-table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:10px;}
+.preview-table th{background:var(--bg3);color:var(--dim);padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);position:sticky;top:0;white-space:nowrap;}
+.preview-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text);white-space:nowrap;}
+.preview-table tr:hover td{background:var(--bg3);}
+.tag{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-family:'IBM Plex Mono',monospace;}
+.tag-avail{background:rgba(0,255,157,0.1);color:var(--green);}
+.tag-break{background:rgba(255,184,0,0.1);color:var(--warn);}
+.tag-lunch{background:rgba(0,194,255,0.1);color:var(--accent);}
+.tag-yes{background:rgba(255,107,53,0.15);color:var(--orange);}
+.tag-no{background:rgba(107,122,143,0.15);color:var(--dim);}
+.tag-aband{background:rgba(255,69,96,0.1);color:var(--red);}
+.tag-other{background:rgba(107,122,143,0.15);color:var(--dim);}
+
+/* ── STAT ROW ── */
+.stat-row{display:flex;gap:20px;margin-top:14px;flex-wrap:wrap;}
+.stat-box{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:12px 16px;}
+.stat-val{font-family:'IBM Plex Mono',monospace;font-size:18px;color:var(--green);font-weight:600;}
+.stat-lbl{font-size:10px;color:var(--dim);margin-top:2px;}
+
+/* ── SHEETS STATUS ── */
+.sheets-status{display:flex;flex-direction:column;gap:8px;}
+.sheet-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:5px;flex-wrap:wrap;gap:8px;}
+.sheet-left{display:flex;align-items:center;gap:10px;}
+.sh-dot{width:8px;height:8px;border-radius:50%;background:var(--border2);flex-shrink:0;}
+.sh-dot.ok{background:var(--green);box-shadow:0 0 5px var(--green);}
+.sh-dot.busy{background:var(--warn);animation:pulse 1s infinite;}
+.sh-name{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text);}
+.sh-meta{font-size:10px;color:var(--dim);margin-top:1px;}
+.sh-link{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent);background:rgba(0,194,255,0.08);border:1px solid rgba(0,194,255,0.2);border-radius:3px;padding:4px 8px;text-decoration:none;white-space:nowrap;}
+.sh-link:hover{background:rgba(0,194,255,0.15);}
+
+/* ── PBI URLS ── */
+.pbi-block{margin-top:16px;padding:14px;background:rgba(0,194,255,0.03);border:1px solid rgba(0,194,255,0.1);border-radius:6px;}
+.pbi-title{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:1px;margin-bottom:10px;}
+.pbi-url-row{margin-bottom:8px;}
+.pbi-url-label{font-size:10px;color:var(--dim);margin-bottom:3px;}
+.pbi-url-copy{display:flex;gap:6px;}
+.pbi-url-box{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.copy-btn{background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--dim);cursor:pointer;white-space:nowrap;}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── INFO BOX ── */
+.info-box{background:rgba(0,194,255,0.04);border:1px solid rgba(0,194,255,0.15);border-radius:6px;padding:12px 14px;font-size:11px;color:var(--dim);line-height:1.7;}
+.info-box span{color:var(--accent);font-family:'IBM Plex Mono',monospace;}
+.warn-box{background:rgba(255,184,0,0.04);border:1px solid rgba(255,184,0,0.2);border-radius:6px;padding:12px 14px;font-size:11px;color:var(--dim);line-height:1.6;margin-top:10px;}
+
+/* ── LOADER ── */
+.loader{display:none;align-items:center;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--dim);margin-top:12px;}
+.loader.show{display:flex;}
+.spinner{width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── PROFILE PANEL ── */
+.profile-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:28px;display:flex;align-items:center;gap:20px;margin-bottom:20px;}
+.profile-big-avatar{width:72px;height:72px;border-radius:50%;background:var(--bg3);border:2px solid var(--border2);overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0;}
+.profile-big-avatar img{width:100%;height:100%;object-fit:cover;}
+.profile-big-name{font-family:'IBM Plex Mono',monospace;font-size:18px;color:var(--bright);font-weight:600;}
+.profile-big-email{font-size:12px;color:var(--dim);margin-top:3px;}
+.profile-big-status{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--green);background:rgba(0,255,157,0.08);border:1px solid rgba(0,255,157,0.2);border-radius:4px;padding:3px 8px;}
+
+/* ── TOAST ── */
+.toast-wrap{position:fixed;bottom:20px;right:20px;z-index:100;display:flex;flex-direction:column;gap:8px;}
+.toast-item{padding:10px 14px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;display:flex;align-items:center;gap:8px;animation:slideIn 0.25s ease;box-shadow:0 4px 20px rgba(0,0,0,0.5);}
+.toast-item.success{background:rgba(0,255,157,0.12);border:1px solid rgba(0,255,157,0.3);color:var(--green);}
+.toast-item.error{background:rgba(255,69,96,0.12);border:1px solid rgba(255,69,96,0.3);color:var(--red);}
+.toast-item.info{background:rgba(0,194,255,0.12);border:1px solid rgba(0,194,255,0.3);color:var(--accent);}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+@media(max-width:700px){
+  .sidebar{width:56px;}
+  .nav-label,.sidebar-logo .app-sub,.profile-info{display:none;}
+  .main{margin-left:56px;}
+  .grid-2,.grid-3{grid-template-columns:1fr;}
+  .toggle-grid{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SIDEBAR ═══════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="app-name">WFM Engine</div>
+    <div class="app-sub">Honda Service Desk</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-item active" onclick="showPanel('generate')" id="nav-generate">
+      <span class="nav-icon">⚡</span>
+      <span class="nav-label">Generar</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('agents')" id="nav-agents">
+      <span class="nav-icon">👥</span>
+      <span class="nav-label">Agentes</span>
+      <span class="nav-badge warn" id="agentBadge">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('connection')" id="nav-connection">
+      <span class="nav-icon">🔗</span>
+      <span class="nav-label">Conexión</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('profile')" id="nav-profile">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">Perfil</span>
+    </div>
+  </nav>
+
+  <div class="sidebar-profile" id="sidebarProfile">
+    <div class="profile-avatar" id="sidebarAvatar">👤</div>
+    <div class="profile-info">
+      <div class="profile-name" id="sidebarName">Sin sesión</div>
+      <div class="profile-status" id="sidebarStatus">Desconectado</div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════ MAIN ═══════════════ -->
+<main class="main">
+
+  <!-- ── PANEL: GENERAR ── -->
+  <div class="panel active" id="panel-generate">
+    <div class="panel-header">
+      <div class="panel-badge">WFM Simulation Engine v3.0</div>
+      <div class="panel-title">Honda <span>Service Desk</span> — Generador</div>
+      <div class="panel-sub">Simulación realista de operaciones de outsourcing · Dosch para Honda Motors USA</div>
+    </div>
+
+    <!-- LOGIN LOGOUT -->
+    <div class="card">
+      <div class="card-title">// 01 — LOGIN / LOGOUT REPORT</div>
+      <div class="grid-2" style="margin-bottom:14px;">
+        <div class="field"><label>Fecha inicio</label><input type="date" id="ll_start" value="2026-01-01"/></div>
+        <div class="field"><label>Fecha fin</label><input type="date" id="ll_end" value="2026-03-31"/></div>
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>Ausentismo base — <span id="abs_val" style="color:var(--accent)">4%</span> <span style="color:var(--dim);font-size:10px;">(Honda target &lt;7%)</span></label>
+        <input type="range" id="abs_slider" min="1" max="20" value="4" oninput="document.getElementById('abs_val').textContent=this.value+'%'"/>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--dim);margin-top:1px;"><span>1% mín</span><span>7% target</span><span>20% crítico</span></div>
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>Variación de adherencia</label>
+        <select id="adh_var">
+          <option value="5">±5 min — alta adherencia (&gt;97%)</option>
+          <option value="10" selected>±10 min — normal (~95%)</option>
+          <option value="20">±20 min — baja (~88%)</option>
+          <option value="30">±30 min — crítica (~80%)</option>
+        </select>
+      </div>
+      <div class="sec">Eventos especiales</div>
+      <div class="toggle-grid">
+        <label class="toggle-item" id="tg_rain"><input type="checkbox" class="toggle-cb" id="evt_rain" onchange="te(this,'tg_rain','warn')"/><span class="toggle-icon">🌧️</span><span class="toggle-label"><strong>Lluvia fuerte</strong>+15min tardanzas, +3% ausencias</span></label>
+        <label class="toggle-item" id="tg_acc"><input type="checkbox" class="toggle-cb" id="evt_acc" onchange="te(this,'tg_acc','warn')"/><span class="toggle-icon">🚗</span><span class="toggle-label"><strong>Accidente autopista</strong>+25min tardanzas</span></label>
+        <label class="toggle-item" id="tg_hday"><input type="checkbox" class="toggle-cb" id="evt_hday" onchange="te(this,'tg_hday','danger')"/><span class="toggle-icon">🎉</span><span class="toggle-label"><strong>Feriado cercano</strong>+5% ausentismo</span></label>
+        <label class="toggle-item" id="tg_sick"><input type="checkbox" class="toggle-cb" id="evt_sick" onchange="te(this,'tg_sick','danger')"/><span class="toggle-icon">🤒</span><span class="toggle-label"><strong>Temporada gripe</strong>+8% ausentismo</span></label>
+        <label class="toggle-item" id="tg_ot"><input type="checkbox" class="toggle-cb" id="evt_ot" onchange="te(this,'tg_ot','')"/><span class="toggle-icon">⏰</span><span class="toggle-label"><strong>Horas extra</strong>+30–60min al turno</span></label>
+        <label class="toggle-item" id="tg_ls"><input type="checkbox" class="toggle-cb" id="evt_ls" onchange="te(this,'tg_ls','danger')"/><span class="toggle-icon">👥</span><span class="toggle-label"><strong>Bajo staffing</strong>Solo 60% del equipo</span></label>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="generateLL()">⚡ Generar</button>
+        <button class="btn btn-sheets" id="btn_pub_ll" onclick="publishSheet('ll')" disabled>▲ Publicar en Sheets</button>
+        <button class="btn btn-ghost" id="dl_ll" disabled onclick="dlCSV('ll')">↓ CSV</button>
+      </div>
+      <div class="loader" id="loader_ll"><div class="spinner"></div>Generando registros...</div>
+      <div id="out_ll"></div>
+    </div>
+
+    <!-- CALLS -->
+    <div class="card">
+      <div class="card-title">// 02 — INBOUND / OUTBOUND CALLS REPORT</div>
+      <div class="grid-3" style="margin-bottom:14px;">
+        <div class="field"><label>Fecha inicio</label><input type="date" id="c_start" value="2026-01-01"/></div>
+        <div class="field"><label>Fecha fin</label><input type="date" id="c_end" value="2026-03-31"/></div>
+        <div class="field"><label>Llamadas promedio/día</label><input type="number" id="c_cpd" value="120" min="10" max="2000"/></div>
+      </div>
+      <div class="grid-2" style="margin-bottom:14px;">
+        <div class="field"><label>Perfil AHT (target &lt;10 min)</label>
+          <select id="c_aht">
+            <option value="good">Bueno (~7 min)</option>
+            <option value="normal" selected>Normal (~9 min)</option>
+            <option value="bad">Malo (~12 min)</option>
+            <option value="mixed">Mixto (varía por agente)</option>
+          </select>
+        </div>
+        <div class="field"><label>Tasa de transferencia (target &lt;25%)</label>
+          <select id="c_trans">
+            <option value="0.10">Baja (~10%)</option>
+            <option value="0.20" selected>Normal (~20%)</option>
+            <option value="0.30">Alta (~30%)</option>
+            <option value="0.40">Crítica (~40%)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>% Abandonadas (target &lt;15%) — <span id="aband_val" style="color:var(--accent)">10%</span></label>
+        <input type="range" id="c_aband" min="2" max="40" value="10" oninput="document.getElementById('aband_val').textContent=this.value+'%'"/>
+      </div>
+      <div class="field" style="margin-bottom:4px;">
+        <label>Perfil de pico horario</label>
+        <select id="c_peak">
+          <option value="morning">Mañana (pico 8–10am)</option>
+          <option value="afternoon">Tarde (pico 1–3pm)</option>
+          <option value="bimodal" selected>Bimodal (mañana + tarde)</option>
+          <option value="flat">Uniforme</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="generateCalls()">⚡ Generar</button>
+        <button class="btn btn-sheets" id="btn_pub_calls" onclick="publishSheet('calls')" disabled>▲ Publicar en Sheets</button>
+        <button class="btn btn-ghost" id="dl_calls" disabled onclick="dlCSV('calls')">↓ CSV</button>
+      </div>
+      <div class="loader" id="loader_calls"><div class="spinner"></div>Generando registros de llamadas...</div>
+      <div id="out_calls"></div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: AGENTES ── -->
+  <div class="panel" id="panel-agents">
+    <div class="panel-header">
+      <div class="panel-badge">Agent Data</div>
+      <div class="panel-title">Gestión de <span>Agentes</span></div>
+      <div class="panel-sub">Cargá un archivo Excel de RRHH o editá los agentes directamente</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">// CARGAR ARCHIVO EXCEL (RRHH)</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('xlsxInput').click()">
+        <div class="uz-icon">📊</div>
+        <p>Arrastrá o hacé clic para cargar <strong>archivo Excel</strong></p>
+        <p class="uz-sub">Formatos soportados: .xlsx · .xls · .csv &nbsp;|&nbsp; Columnas: agent-id · agent-name / full-name · start-time · end-time · segment · break1 · break2 · lunch</p>
+      </div>
+      <input type="file" id="xlsxInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="loadAgentFile(event)"/>
+      <div id="loadStatus" style="margin-top:10px;"></div>
+      <div class="btn-row">
+        <button class="btn btn-green" onclick="addAgentRow()">+ Agregar agente</button>
+        <button class="btn btn-sheets" id="btn_pub_agents" onclick="publishSheet('agents')" disabled>▲ Publicar Agent Data</button>
+        <button class="btn btn-ghost" onclick="dlAgentCSV()">↓ Exportar CSV</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">// AGENTES CARGADOS</div>
+      <div id="agentTableWrap">
+        <div class="info-box"><span>ℹ️ Sin agentes cargados</span> — Cargá un archivo Excel o agregá agentes manualmente con el botón de arriba.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: CONEXIÓN ── -->
+  <div class="panel" id="panel-connection">
+    <div class="panel-header">
+      <div class="panel-badge">Google Sheets Integration</div>
+      <div class="panel-title">Configuración de <span>Conexión</span></div>
+      <div class="panel-sub">Conectá con Google para publicar datasets y obtener URLs para Power BI</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">// OAUTH 2.0 — GOOGLE CLOUD</div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Client ID <span style="color:var(--dim);font-weight:400">(Google Cloud Console → APIs & Services → Credentials → OAuth 2.0)</span></label>
+        <input type="text" id="clientIdInput" placeholder="000000000000-xxxxxxxx.apps.googleusercontent.com"/>
+      </div>
+      <button class="btn btn-google" onclick="initGoogleAuth()" style="margin-top:4px;"><span style="font-size:16px;font-weight:700;color:#4285f4;font-family:sans-serif">G</span>&nbsp;Conectar con Google</button>
+      <div class="info-box" style="margin-top:14px;">
+        <span>Pasos para obtener el Client ID:</span><br>
+        1. Entrá a <span>console.cloud.google.com</span> → creá un proyecto nuevo<br>
+        2. APIs &amp; Services → Library → habilitá <span>Google Sheets API</span> + <span>Google Drive API</span><br>
+        3. Credentials → Create Credentials → <span>OAuth 2.0 Client ID</span> → Web application<br>
+        4. En "Authorized JavaScript origins" agregá <span>null</span> (para uso local) o tu dominio<br>
+        5. OAuth consent screen → External → agregá tu Gmail como <span>Test User</span>
+      </div>
+    </div>
+
+    <div class="card" id="sheetsCard">
+      <div class="card-title">// ESTADO DE SPREADSHEETS</div>
+      <div class="sheets-status">
+        <div class="sheet-row"><div class="sheet-left"><div class="sh-dot" id="dot_ll"></div><div><div class="sh-name">login_logout_report</div><div class="sh-meta" id="meta_ll">Sin datos publicados</div></div></div><a id="link_ll" href="#" target="_blank" class="sh-link" style="display:none">↗ Abrir</a></div>
+        <div class="sheet-row"><div class="sheet-left"><div class="sh-dot" id="dot_calls"></div><div><div class="sh-name">calls_report</div><div class="sh-meta" id="meta_calls">Sin datos publicados</div></div></div><a id="link_calls" href="#" target="_blank" class="sh-link" style="display:none">↗ Abrir</a></div>
+        <div class="sheet-row"><div class="sheet-left"><div class="sh-dot" id="dot_agents"></div><div><div class="sh-name">agent_data</div><div class="sh-meta" id="meta_agents">Sin datos publicados</div></div></div><a id="link_agents" href="#" target="_blank" class="sh-link" style="display:none">↗ Abrir</a></div>
+      </div>
+      <div class="pbi-block">
+        <div class="pbi-title">// POWER BI — URLs CSV (Inicio → Obtener datos → Web)</div>
+        <div class="pbi-url-row"><div class="pbi-url-label">Login / Logout Report</div><div class="pbi-url-copy"><div class="pbi-url-box" id="pbi_ll">Publicá primero</div><button class="copy-btn" onclick="copyUrl('pbi_ll')">Copiar</button></div></div>
+        <div class="pbi-url-row"><div class="pbi-url-label">Calls Report</div><div class="pbi-url-copy"><div class="pbi-url-box" id="pbi_calls">Publicá primero</div><button class="copy-btn" onclick="copyUrl('pbi_calls')">Copiar</button></div></div>
+        <div class="pbi-url-row"><div class="pbi-url-label">Agent Data</div><div class="pbi-url-copy"><div class="pbi-url-box" id="pbi_agents">Publicá primero</div><button class="copy-btn" onclick="copyUrl('pbi_agents')">Copiar</button></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL: PERFIL ── -->
+  <div class="panel" id="panel-profile">
+    <div class="panel-header">
+      <div class="panel-badge">Google Account</div>
+      <div class="panel-title">Perfil de <span>Usuario</span></div>
+      <div class="panel-sub">Información de la cuenta Google conectada</div>
+    </div>
+    <div class="profile-card" id="profileCard">
+      <div class="profile-big-avatar" id="bigAvatar">👤</div>
+      <div>
+        <div class="profile-big-name" id="bigName">Sin sesión iniciada</div>
+        <div class="profile-big-email" id="bigEmail">Conectate desde la sección Conexión</div>
+        <div class="profile-big-status" id="bigStatus" style="display:none"><span style="width:7px;height:7px;background:var(--green);border-radius:50%;display:inline-block;"></span>Google conectado</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">// RESUMEN DE SESIÓN</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;" id="sessionSummary">
+        <div class="stat-box"><div class="stat-val" id="sum_agents">0</div><div class="stat-lbl">Agentes cargados</div></div>
+        <div class="stat-box"><div class="stat-val" id="sum_ll">—</div><div class="stat-lbl">Registros Login/Logout</div></div>
+        <div class="stat-box"><div class="stat-val" id="sum_calls">—</div><div class="stat-lbl">Registros de llamadas</div></div>
+        <div class="stat-box"><div class="stat-val" id="sum_sheets" style="color:var(--dim)">0/3</div><div class="stat-lbl">Sheets publicados</div></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let agents = [];
+let csvData = { ll: null, calls: null };
+let sheetIds = { ll: null, calls: null, agents: null };
+let accessToken = null, tokenClient = null, isSignedIn = false;
+let googleUser = { name:'', email:'', picture:'' };
+let publishedCount = 0;
+
+// ═══════════════════════════════════════
+// NAV
+// ═══════════════════════════════════════
+function showPanel(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+  if(id==='profile') updateProfilePanel();
+}
+
+// ═══════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════
+const R = (a,b) => Math.random()*(b-a)+a;
+const RI = (a,b) => Math.floor(R(a,b+1));
+const pick = arr => arr[RI(0,arr.length-1)];
+const t2s = t => {
+  if(!t||typeof t!=='string') return 0;
+  t=t.trim();
+  // Handle AM/PM formats: "7:02:54 AM", "3:30 PM", "07:00AM", "7:00 am"
+  const ampm=t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i);
+  if(ampm){
+    let h=parseInt(ampm[1]),m=parseInt(ampm[2]),s=parseInt(ampm[3]||0);
+    const isPM=ampm[4].toUpperCase()==='PM';
+    if(isPM && h!==12) h+=12;
+    if(!isPM && h===12) h=0;
+    return h*3600+m*60+s;
+  }
+  // 24h: HH:MM:SS or HH:MM or H:MM:SS
+  const parts=t.split(':').map(Number);
+  if(parts.some(isNaN)) return 0;
+  const[h=0,m=0,s=0]=parts;
+  return h*3600+m*60+s;
+};
+const s2t = s => { s=Math.max(0,Math.min(Math.floor(s),86399)); return [Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(v=>v.toString().padStart(2,'0')).join(':'); };
+const s2d = s => { s=Math.abs(Math.floor(s)); return [Math.floor(s/3600),Math.floor((s%3600)/60),s%60].map(v=>v.toString().padStart(2,'0')).join(':'); };
+const phone = () => `+1${RI(200,999)}${RI(200,999)}${RI(1000,9999)}`;
+function getDates(s,e){
+  const d=[];let c=new Date(s+'T12:00:00');const end=new Date(e+'T12:00:00');
+  while(c<=end){const w=c.getDay();if(w&&w<6)d.push(c.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'}));c.setDate(c.getDate()+1);}
+  return d;
+}
+function te(cb,id,cls){
+  const el=document.getElementById(id);
+  el.classList.toggle('active',cb.checked);
+  if(cls)el.classList.toggle(cls,cb.checked);
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+function toast(msg,type='info',ms=4500){
+  const c=document.getElementById('toastWrap');
+  const el=document.createElement('div');
+  el.className=`toast-item ${type}`;
+  el.innerHTML=`<span>${type==='success'?'✓':type==='error'?'✕':'ℹ'}</span>${msg}`;
+  c.appendChild(el);
+  setTimeout(()=>{el.style.cssText='opacity:0;transition:opacity 0.3s';setTimeout(()=>el.remove(),300);},ms);
+}
+
+// ═══════════════════════════════════════
+// GOOGLE AUTH
+// ═══════════════════════════════════════
+function initGoogleAuth(){
+  const cid=document.getElementById('clientIdInput').value.trim();
+  if(!cid||!cid.includes('apps.googleusercontent.com')){
+    toast('Client ID inválido','error'); return;
+  }
+  try{
+    tokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:cid,
+      scope:'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+      callback: async resp => {
+        if(resp.error){toast('Error OAuth: '+resp.error,'error');return;}
+        accessToken=resp.access_token;
+        isSignedIn=true;
+        // Fetch user info
+        try{
+          const ui=await fetch('https://www.googleapis.com/oauth2/v2/userinfo',{headers:{Authorization:`Bearer ${accessToken}`}});
+          const u=await ui.json();
+          googleUser={name:u.name||'',email:u.email||'',picture:u.picture||''};
+          updateSidebarProfile();
+          toast(`¡Bienvenido, ${u.name}!`,'success');
+        }catch(e){ toast('Conectado (sin info de perfil)','success'); }
+        // Enable publish buttons
+        ['btn_pub_agents','btn_pub_ll','btn_pub_calls'].forEach(id=>{
+          const el=document.getElementById(id);if(el)el.disabled=false;
+        });
+        // Try to find existing sheet IDs on Drive
+        await discoverExistingSheets();
+      }
+    });
+    tokenClient.requestAccessToken();
+  }catch(e){toast('Error: '+e.message,'error');console.error(e);}
+}
+
+function updateSidebarProfile(){
+  const {name,email,picture}=googleUser;
+  const av=document.getElementById('sidebarAvatar');
+  if(picture)av.innerHTML=`<img src="${picture}" alt=""/>`;
+  else av.textContent='👤';
+  document.getElementById('sidebarName').textContent=name||email;
+  const st=document.getElementById('sidebarStatus');
+  st.textContent='● Conectado';st.className='profile-status ok';
+}
+
+function updateProfilePanel(){
+  const {name,email,picture}=googleUser;
+  const ba=document.getElementById('bigAvatar');
+  if(picture)ba.innerHTML=`<img src="${picture}" alt=""/>`;
+  document.getElementById('bigName').textContent=name||'Sin sesión';
+  document.getElementById('bigEmail').textContent=email||'Conectate desde la sección Conexión';
+  if(isSignedIn)document.getElementById('bigStatus').style.display='inline-flex';
+  document.getElementById('sum_agents').textContent=agents.length;
+  document.getElementById('sum_ll').textContent=csvData.ll?parseInt(csvData.ll.split('\n').length-1).toLocaleString():'—';
+  document.getElementById('sum_calls').textContent=csvData.calls?parseInt(csvData.calls.split('\n').length-1).toLocaleString():'—';
+  document.getElementById('sum_sheets').textContent=`${publishedCount}/3`;
+  if(publishedCount>0)document.getElementById('sum_sheets').style.color='var(--green)';
+}
+
+// ═══════════════════════════════════════
+// DISCOVER EXISTING SHEETS + AUTO-LOAD AGENTS
+// ═══════════════════════════════════════
+async function discoverExistingSheets(){
+  const names={ll:'login_logout_report',calls:'calls_report',agents:'agent_data'};
+  publishedCount=0;
+  for(const[key,name] of Object.entries(names)){
+    try{
+      const q=encodeURIComponent(`name='WFM Honda — ${name}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
+      const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,
+        {headers:{Authorization:`Bearer ${accessToken}`}});
+      const data=await r.json();
+      if(data.files&&data.files.length>0){
+        sheetIds[key]=data.files[0].id;
+        const sid=sheetIds[key];
+        const lk=document.getElementById(`link_${key}`);
+        lk.href=`https://docs.google.com/spreadsheets/d/${sid}/edit`;
+        lk.style.display='inline';
+        document.getElementById(`dot_${key}`).className='sh-dot ok';
+        document.getElementById(`pbi_${key}`).textContent=`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&sheet=Data`;
+
+        if(key==='agents'){
+          // ── AUTO-LOAD agent data from Drive into memory ──
+          try{
+            const rows=await fetchSheetRows(sid);
+            if(rows&&rows.length>1){
+              const hdrs=rows[0].map(h=>(h||'').toLowerCase().trim().replace(/\s+/g,'-'));
+              const parsed=rows.slice(1).map(r=>{
+                const o={};hdrs.forEach((h,i)=>o[h]=(r[i]||'').trim());
+                return{
+                  id:      o['agent-id']||o['agentid']||o['agent_id']||'',
+                  name:    o['full-name']||o['fullname']||o['agent-name']||o['name']||o['nombre']||'',
+                  start:   o['start-time']||o['starttime']||'08:00:00',
+                  end:     o['end-time']||o['endtime']||'17:00:00',
+                  segment: o['segment']||o['profile']||'Service-Desk Level 1',
+                  break1:  o['break1']||o['break-1']||'09:30:00',
+                  break2:  o['break2']||o['break-2']||'15:30:00',
+                  lunch:   o['lunch']||o['almuerzo']||'13:00:00',
+                };
+              }).filter(a=>a.id);
+              if(parsed.length){
+                agents=parsed;
+                renderAgentTable();
+                updateAgentBadge();
+                document.getElementById('loadStatus').innerHTML=`<div class="agent-count"><span class="dot-pulse"></span>${agents.length} agentes restaurados desde Drive</div>`;
+                document.getElementById(`meta_${key}`).textContent=`${agents.length} agentes · restaurado desde Drive`;
+                toast(`✓ ${agents.length} agentes restaurados desde Google Drive`,'success');
+              }
+            }
+          }catch(e){
+            document.getElementById(`meta_${key}`).textContent='Sheet encontrado · error al restaurar agentes';
+            console.warn('Could not load agents:',e);
+          }
+        } else {
+          document.getElementById(`meta_${key}`).textContent='Sheet encontrado en Drive';
+        }
+        publishedCount++;
+      }
+    }catch(e){ console.warn('discoverExistingSheets:',key,e); }
+  }
+  if(publishedCount>0) toast(`${publishedCount} sheet(s) encontrados en Drive`,'info',3000);
+}
+
+// Fetch all rows from a sheet's Data tab
+async function fetchSheetRows(sid){
+  const r=await sheetsAPI('GET',
+    `https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent('Data!A1:ZZZ')}`,
+    null);
+  return r.values||[];
+}
+
+// ═══════════════════════════════════════
+// LOAD AGENT FILE (Excel or CSV)
+// ═══════════════════════════════════════
+function loadAgentFile(e){
+  const file=e.target.files[0]; if(!file) return;
+  const ext=file.name.split('.').pop().toLowerCase();
+  const reader=new FileReader();
+  if(ext==='csv'){
+    reader.onload=ev=>parseAgentCSV(ev.target.result);
+    reader.readAsText(file);
+  } else {
+    reader.onload=ev=>{
+      try{
+        const wb=XLSX.read(ev.target.result,{type:'array'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const raw=XLSX.utils.sheet_to_csv(ws);
+        parseAgentCSV(raw);
+      }catch(err){toast('Error al leer Excel: '+err.message,'error');}
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function parseAgentCSV(raw){
+  const lines=raw.trim().split('\n').filter(l=>l.trim());
+  if(lines.length<2){toast('Archivo vacío o sin datos','error');return;}
+  const hdrs=lines[0].split(',').map(h=>h.trim().toLowerCase().replace(/"/g,'').replace(/\s+/g,'-'));
+  const parsed=lines.slice(1).map(line=>{
+    // Handle quoted fields with commas inside
+    const vals=[];let cur='',q=false;
+    for(const ch of line){
+      if(ch==='"'){q=!q;}
+      else if(ch===','&&!q){vals.push(cur.trim());cur='';}
+      else cur+=ch;
+    }
+    vals.push(cur.trim());
+    const o={};hdrs.forEach((h,i)=>o[h]=(vals[i]||'').replace(/"/g,''));
+    // Support multiple possible column names for each field
+    return{
+      id:   o['agent-id']||o['agentid']||o['agent_id']||o['email']||'',
+      name: o['full-name']||o['fullname']||o['agent-name']||o['agentname']||o['name']||o['nombre']||'',
+      start:o['start-time']||o['starttime']||o['start_time']||o['inicio']||'08:00:00',
+      end:  o['end-time']||o['endtime']||o['end_time']||o['fin']||'17:00:00',
+      segment:o['segment']||o['perfil']||o['profile']||'Service-Desk Level 1',
+      break1: o['break1']||o['break-1']||o['receso1']||'09:30:00',
+      break2: o['break2']||o['break-2']||o['receso2']||'15:30:00',
+      lunch:  o['lunch']||o['almuerzo']||'13:00:00',
+    };
+  }).filter(a=>a.id);
+
+  if(!parsed.length){toast('No se encontraron agentes válidos. Verificá que la columna agent-id esté presente.','error');return;}
+  agents=parsed;
+  renderAgentTable();
+  updateAgentBadge();
+  toast(`${agents.length} agentes cargados correctamente`,'success');
+  document.getElementById('loadStatus').innerHTML=`<div class="agent-count"><span class="dot-pulse"></span>${agents.length} agentes cargados · primer ID: ${agents[0].id}</div>`;
+}
+
+// ═══════════════════════════════════════
+// AGENT TABLE
+// ═══════════════════════════════════════
+function renderAgentTable(){
+  if(!agents.length){
+    document.getElementById('agentTableWrap').innerHTML=`<div class="info-box"><span>ℹ️ Sin agentes</span> — Cargá un archivo o usá el botón "Agregar agente".</div>`;
+    return;
+  }
+  const cols=['id','name','start','end','segment','break1','break2','lunch'];
+  const labels=['agent-id','full-name','start-time','end-time','segment','break1','break2','lunch'];
+  const rows=agents.map((ag,i)=>`
+    <tr>
+      ${cols.map(c=>`<td><input value="${ag[c]||''}" onchange="agents[${i}]['${c}']=this.value" placeholder="${c}"/></td>`).join('')}
+      <td><button class="del-btn" onclick="deleteAgent(${i})">✕</button></td>
+    </tr>`).join('');
+  document.getElementById('agentTableWrap').innerHTML=`
+    <div class="agent-table-wrap">
+      <table class="agent-table">
+        <thead><tr>${labels.map(l=>`<th>${l}</th>`).join('')}<th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function addAgentRow(){
+  agents.push({id:'',name:'',start:'08:00:00',end:'17:00:00',segment:'Service-Desk Level 1',break1:'09:30:00',break2:'15:30:00',lunch:'13:00:00'});
+  renderAgentTable();
+  updateAgentBadge();
+}
+function deleteAgent(i){agents.splice(i,1);renderAgentTable();updateAgentBadge();}
+function updateAgentBadge(){
+  const b=document.getElementById('agentBadge');
+  b.textContent=agents.length;
+  b.className=agents.length?'nav-badge':'nav-badge warn';
+}
+
+// ═══════════════════════════════════════
+// GENERATE LOGIN/LOGOUT
+// ═══════════════════════════════════════
+function generateLL(){
+  if(!agents.length){toast('Cargá agentes primero en la sección Agentes','error');return;}
+  const s=document.getElementById('ll_start').value,e=document.getElementById('ll_end').value;
+  if(!s||!e||s>e){toast('Rango de fechas inválido','error');return;}
+  let absRate=parseInt(document.getElementById('abs_slider').value)/100, late=0;
+  if(document.getElementById('evt_rain').checked){absRate+=0.03;late+=15*60;}
+  if(document.getElementById('evt_acc').checked){absRate+=0.04;late+=25*60;}
+  if(document.getElementById('evt_hday').checked) absRate+=0.05;
+  if(document.getElementById('evt_sick').checked) absRate+=0.08;
+  if(document.getElementById('evt_ls').checked)   absRate=Math.max(absRate,0.40);
+  const adhV=parseInt(document.getElementById('adh_var').value);
+  const ot=document.getElementById('evt_ot').checked;
+  document.getElementById('loader_ll').classList.add('show');
+  document.getElementById('out_ll').innerHTML='';
+  setTimeout(()=>{
+    try{
+    const dates=getDates(s,e);const rows=[];
+    for(const date of dates){
+      for(const ag of agents){
+        if(Math.random()<absRate) continue;
+        const vs=adhV*60;
+        const ss=t2s(ag.start||'08:00:00'),es=t2s(ag.end||'17:00:00');
+        const b1=t2s(ag.break1||'09:30:00'),b2=t2s(ag.break2||'15:30:00'),ln=t2s(ag.lunch||'13:00:00');
+        const login=ss+Math.floor(R(0,late+vs));
+        const logout=es-Math.floor(R(0,vs))+(ot&&Math.random()<0.3?RI(30,60)*60:0);
+        const acts=[];
+        acts.push({t:'Available',s:login,e:b1-RI(0,300)});
+        const b1s=b1+RI(-300,300);acts.push({t:'Break',s:b1s,e:b1s+15*60+RI(-120,300)});
+        acts.push({t:'Available',s:acts[acts.length-1].e+RI(0,60),e:ln-RI(0,300)});
+        const lns=ln+RI(-300,300);acts.push({t:'Lunch',s:lns,e:lns+30*60+RI(-120,300)});
+        acts.push({t:'Available',s:acts[acts.length-1].e+RI(0,60),e:b2-RI(0,300)});
+        const b2s=b2+RI(-300,300);acts.push({t:'Break',s:b2s,e:b2s+15*60+RI(-120,300)});
+        acts.push({t:'Available',s:acts[acts.length-1].e+RI(0,60),e:logout});
+        if(Math.random()<0.3){const a=login+RI(3600,7200);acts.push({t:'ACW',s:a,e:a+RI(60,300)});}
+        if(Math.random()<0.15){const a=login+RI(1800,5400);acts.push({t:'Not Ready',s:a,e:a+RI(120,600)});}
+        acts.sort((a,b)=>a.s-b.s);
+        for(const a of acts) if(a.s<a.e&&a.s>=0) rows.push([ag.id,date,a.t,s2t(a.s),s2t(a.e),ag.segment||'Service-Desk Level 1']);
+      }
+    }
+    const hdrs=['agent-id','date','activity-type','activity-start','activity-end','profile'];
+    csvData.ll=[hdrs,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+    document.getElementById('loader_ll').classList.remove('show');
+    document.getElementById('dl_ll').disabled=false;
+    if(isSignedIn) document.getElementById('btn_pub_ll').disabled=false;
+    const tagT=t=>({Available:'<span class="tag tag-avail">Available</span>',Break:'<span class="tag tag-break">Break</span>',Lunch:'<span class="tag tag-lunch">Lunch</span>'})[t]||`<span class="tag tag-other">${t}</span>`;
+    document.getElementById('out_ll').innerHTML=previewBlock('LOGIN_LOGOUT_REPORT',rows.length,dates.length,
+      ['agent-id','date','activity-type','activity-start','activity-end','profile'],
+      rows.slice(0,50).map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${tagT(r[2])}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`)
+    );
+    toast(`Login/Logout generado: ${rows.length.toLocaleString()} registros`,'success');
+    }catch(err){ document.getElementById('loader_ll').classList.remove('show'); toast('Error generando Login/Logout: '+err.message,'error'); console.error(err); }
+  },200);
+}
+
+// ═══════════════════════════════════════
+// GENERATE CALLS
+// ═══════════════════════════════════════
+function generateCalls(){
+  if(!agents.length){toast('Cargá agentes primero en la sección Agentes','error');return;}
+  const s=document.getElementById('c_start').value,e=document.getElementById('c_end').value;
+  if(!s||!e||s>e){toast('Rango de fechas inválido','error');return;}
+  const cpd=parseInt(document.getElementById('c_cpd').value);
+  const ahtP=document.getElementById('c_aht').value;
+  const transR=parseFloat(document.getElementById('c_trans').value);
+  const abandR=parseInt(document.getElementById('c_aband').value)/100;
+  const peakP=document.getElementById('c_peak').value;
+  document.getElementById('loader_calls').classList.add('show');
+  document.getElementById('out_calls').innerHTML='';
+  setTimeout(()=>{
+    try{
+    const dates=getDates(s,e);
+    const aht={good:{talk:[180,480],hold:[0,120],acw:[30,90]},normal:{talk:[300,600],hold:[0,180],acw:[60,180]},bad:{talk:[480,900],hold:[60,300],acw:[120,360]},mixed:{talk:[120,900],hold:[0,300],acw:[30,360]}};
+
+    // Hour-of-day bias curves (index = hour 0-23), applied WITHIN each agent's shift window
+    const hw={
+      morning:  [0,0,0,0,0,0,0,.3,2,3,2.5,1.5,1,.8,.7,.6,.4,.2,.1,0,0,0,0,0],
+      afternoon:[0,0,0,0,0,0,0,.3,.8,1,1,1,1.5,3,2.5,1.5,.8,.4,.2,.1,0,0,0,0],
+      bimodal:  [0,0,0,0,0,0,0,.3,2,3,2,1.5,1,2,3,2,1,.4,.2,.1,0,0,0,0],
+      flat:     [0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,.5,.2,0,0,0,0]
+    };
+
+    // Weighted random time within an agent's shift using peak profile
+    function agentCallTime(agStart, agEnd, profile){
+      // Get hours that fall inside the agent's shift
+      const shiftHours=[];
+      const weights=[];
+      const startH=Math.floor(agStart/3600);
+      const endH=Math.ceil(agEnd/3600);
+      for(let h=startH;h<endH && h<24;h++){
+        shiftHours.push(h);
+        weights.push(hw[profile][h]||0.1); // min weight 0.1 so all shift hours are possible
+      }
+      // Weighted pick of hour
+      const tw=weights.reduce((a,b)=>a+b,0);
+      let rnd=Math.random()*tw, picked=shiftHours[shiftHours.length-1];
+      for(let i=0;i<weights.length;i++){ rnd-=weights[i]; if(rnd<=0){picked=shiftHours[i];break;} }
+      // Random second within that hour, clamped to agent's shift
+      const secInHour=RI(0,3599);
+      const raw=picked*3600+secInHour;
+      return Math.max(agStart, Math.min(agEnd-60, raw)); // ensure within shift
+    }
+
+    const rows=[];
+    for(const date of dates){
+      const dc=Math.floor(R(cpd*.7,cpd*1.3));
+      for(let i=0;i<dc;i++){
+        const ag=pick(agents);
+        const agStart=t2s(ag.start||'08:00:00');
+        const agEnd=t2s(ag.end||'17:00:00');
+        const cfg=aht[ahtP==='mixed'?pick(['good','normal','bad']):ahtP];
+        const wt=Math.floor(R(10,300)),tk=Math.floor(R(...cfg.talk)),hd=Math.floor(R(...cfg.hold)),aw=Math.floor(R(...cfg.acw));
+        const st=agentCallTime(agStart,agEnd,peakP);
+        const et=Math.min(st+wt+tk+hd+aw, agEnd); // call can't go past agent end
+        const ab=Math.random()<abandR,tr=!ab&&Math.random()<transR;
+        rows.push([phone(),ab?'ABANDONED':ag.id,s2t(st),s2t(et),date,s2d(wt),ab?'00:00:00':s2d(aw),ab?'00:00:00':s2d(tk),ab?'00:00:00':s2d(hd),ab?'Abandoned':tr?'Yes':'No']);
+      }
+      // Sort rows by start time within each day for realism
+      rows.sort((a,b)=>{ if(a[4]!==b[4])return 0; return a[2]>b[2]?1:-1; });
+    }
+    const hdrs=['customer-id','agent-id','start-time','end-time','date','wait-time','acw-time','talk-time','hold-time','transferred'];
+    csvData.calls=[hdrs,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+    document.getElementById('loader_calls').classList.remove('show');
+    document.getElementById('dl_calls').disabled=false;
+    if(isSignedIn) document.getElementById('btn_pub_calls').disabled=false;
+    const tagT=t=>t==='Yes'?'<span class="tag tag-yes">Yes</span>':t==='Abandoned'?'<span class="tag tag-aband">Abandoned</span>':'<span class="tag tag-no">No</span>';
+    document.getElementById('out_calls').innerHTML=previewBlock('CALLS_REPORT',rows.length,dates.length,
+      ['customer-id','agent-id','start-time','end-time','date','wait-time','acw-time','talk-time','hold-time','transferred'],
+      rows.slice(0,50).map(r=>`<tr>${r.slice(0,9).map(v=>`<td>${v}</td>`).join('')}<td>${tagT(r[9])}</td></tr>`)
+    );
+    toast(`Calls generado: ${rows.length.toLocaleString()} registros`,'success');
+    }catch(err){ document.getElementById('loader_calls').classList.remove('show'); toast('Error generando Calls: '+err.message,'error'); console.error(err); }
+  },200);
+}
+
+// ═══════════════════════════════════════
+// PREVIEW HELPER
+// ═══════════════════════════════════════
+function previewBlock(title,total,days,cols,rowsHtml){
+  return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dim);">${title} — PREVIEW (50 filas)</div>
+      <div style="display:flex;gap:16px;">
+        <div class="stat-box" style="padding:6px 12px;"><div class="stat-val" style="font-size:14px;">${total.toLocaleString()}</div><div class="stat-lbl">registros</div></div>
+        <div class="stat-box" style="padding:6px 12px;"><div class="stat-val" style="font-size:14px;">${days}</div><div class="stat-lbl">días</div></div>
+      </div>
+    </div>
+    <div class="preview-wrap"><table class="preview-table">
+      <thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+      <tbody>${rowsHtml.join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+// SHEETS API HELPERS
+// ═══════════════════════════════════════
+async function sheetsAPI(method,url,body){
+  const opts={method,headers:{'Authorization':`Bearer ${accessToken}`,'Content-Type':'application/json'}};
+  if(body!==null&&body!==undefined) opts.body=JSON.stringify(body);
+  const r=await fetch(url,opts);
+  if(!r.ok) throw new Error(`Sheets ${r.status}: ${await r.text()}`);
+  return r.json().catch(()=>({}));
+}
+async function driveAPI(method,url,body){
+  const r=await fetch(url,{method,headers:{'Authorization':`Bearer ${accessToken}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(`Drive ${r.status}: ${await r.text()}`);
+  return r.json().catch(()=>({}));
+}
+
+// ═══════════════════════════════════════
+// FIND OR CREATE SHEET (persistent, no duplicates)
+// ═══════════════════════════════════════
+async function findOrCreateSheet(key){
+  const titles={ll:'login_logout_report',calls:'calls_report',agents:'agent_data'};
+  const title=titles[key];
+  if(sheetIds[key]) return sheetIds[key]; // already known this session
+
+  // Search Drive for existing file
+  const q=encodeURIComponent(`name='WFM Honda — ${title}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`,
+    {headers:{Authorization:`Bearer ${accessToken}`}});
+  const data=await r.json();
+  if(data.files&&data.files.length>0){
+    sheetIds[key]=data.files[0].id;
+    return sheetIds[key];
+  }
+
+  // Create new
+  const created=await sheetsAPI('POST','https://sheets.googleapis.com/v4/spreadsheets',{
+    properties:{title:`WFM Honda — ${title}`},
+    sheets:[{properties:{title:'Data'}}]
+  });
+  sheetIds[key]=created.spreadsheetId;
+  // Make public (needed for Power BI CSV URL)
+  await driveAPI('POST',`https://www.googleapis.com/drive/v3/files/${sheetIds[key]}/permissions`,{role:'reader',type:'anyone'});
+  return sheetIds[key];
+}
+
+// ═══════════════════════════════════════
+// PUBLISH TO SHEETS (smart append by date)
+// ═══════════════════════════════════════
+async function publishSheet(key){
+  if(!isSignedIn){toast('Conectate con Google primero','error');return;}
+  const DATE_COL={ll:1,calls:4,agents:null};
+  const getData={
+    ll:  ()=>csvData.ll  ? csvData.ll.trim().split('\n').map(l=>l.split(',').map(v=>v.replace(/"/g,''))) : null,
+    calls:()=>csvData.calls ? csvData.calls.trim().split('\n').map(l=>l.split(',').map(v=>v.replace(/"/g,''))) : null,
+    agents:()=>[['agent-id','full-name','start-time','end-time','segment','break1','break2','lunch'],...agents.map(a=>[a.id,a.name,a.start,a.end,a.segment,a.break1,a.break2,a.lunch])]
+  };
+  const newData=getData[key]();
+  if(!newData){toast('Generá los datos primero','error');return;}
+
+  document.getElementById(`dot_${key}`).className='sh-dot busy';
+  document.getElementById(`meta_${key}`).textContent='Procesando...';
+  toast('Buscando o creando spreadsheet...','info',2000);
+
+  try{
+    const sid=await findOrCreateSheet(key);
+    const dateCol=DATE_COL[key];
+    let rowsToWrite=[];let skipped=0;let existingCount=0;
+
+    if(dateCol===null){
+      // Agent data — always overwrite
+      await sheetsAPI('POST',`https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent('Data!A1:ZZZ')}:clear`,null);
+      rowsToWrite=newData;
+    } else {
+      // Read existing dates
+      let existingDates=new Set();
+      try{
+        const ex=await sheetsAPI('GET',`https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent('Data!A1:ZZZ')}`,null);
+        const exRows=ex.values||[];
+        existingCount=Math.max(0,exRows.length-1);
+        exRows.slice(1).forEach(row=>{const d=row[dateCol];if(d)existingDates.add(d.trim());});
+      }catch(e){existingDates=new Set();}
+
+      const header=newData[0];
+      const newRows=newData.slice(1).filter(row=>{
+        const d=(row[dateCol]||'').trim();
+        if(existingDates.has(d)){skipped++;return false;}
+        return true;
+      });
+
+      if(!newRows.length){
+        document.getElementById(`dot_${key}`).className='sh-dot ok';
+        document.getElementById(`meta_${key}`).textContent=`${existingCount.toLocaleString()} filas existentes · Sin fechas nuevas`;
+        const lk=document.getElementById(`link_${key}`);
+        lk.href=`https://docs.google.com/spreadsheets/d/${sid}/edit`;lk.style.display='inline';
+        document.getElementById(`pbi_${key}`).textContent=`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&sheet=Data`;
+        toast(`⚠️ Todas las fechas ya existen (${skipped.toLocaleString()} filas omitidas)`,'info',6000);
+        return;
+      }
+      rowsToWrite=existingCount===0?[header,...newRows]:newRows;
+      toast(`Agregando ${newRows.length.toLocaleString()} filas · omitiendo ${skipped.toLocaleString()} duplicadas`,'info',3000);
+    }
+
+    // Write in chunks
+    const CHUNK=2000;
+    if(dateCol===null){
+      for(let i=0;i<rowsToWrite.length;i+=CHUNK)
+        await sheetsAPI('PUT',`https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent('Data!A'+(i+1))}?valueInputOption=RAW`,{values:rowsToWrite.slice(i,i+CHUNK)});
+    } else {
+      for(let i=0;i<rowsToWrite.length;i+=CHUNK)
+        await sheetsAPI('POST',`https://sheets.googleapis.com/v4/spreadsheets/${sid}/values/${encodeURIComponent('Data!A1')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{values:rowsToWrite.slice(i,i+CHUNK)});
+    }
+
+    const sheetsUrl=`https://docs.google.com/spreadsheets/d/${sid}/edit`;
+    const csvUrl=`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:csv&sheet=Data`;
+    document.getElementById(`dot_${key}`).className='sh-dot ok';
+    const added=rowsToWrite.length-(dateCol===null?1:0);
+    document.getElementById(`meta_${key}`).textContent=`+${added.toLocaleString()} filas agregadas${skipped?` · ${skipped.toLocaleString()} omitidas`:''} · Ahora`;
+    const lk=document.getElementById(`link_${key}`);lk.href=sheetsUrl;lk.style.display='inline';
+    document.getElementById(`pbi_${key}`).textContent=csvUrl;
+    publishedCount=Object.values(sheetIds).filter(Boolean).length;
+    toast('✓ Publicado: +'+added.toLocaleString()+' filas'+(skipped?' · '+skipped.toLocaleString()+' duplicadas omitidas':''),'success');
+  }catch(e){
+    document.getElementById(`dot_${key}`).className='sh-dot';
+    document.getElementById(`meta_${key}`).textContent='Error al publicar';
+    toast('Error: '+e.message,'error');console.error(e);
+  }
+}
+
+// ═══════════════════════════════════════
+// DOWNLOAD
+// ═══════════════════════════════════════
+function dlCSV(key){
+  const d=key==='ll'?csvData.ll:csvData.calls;
+  if(!d){toast('Generá los datos primero','error');return;}
+  const names={ll:'login_logout_report.csv',calls:'calls_report.csv'};
+  const blob=new Blob([d],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=names[key];a.click();URL.revokeObjectURL(url);
+}
+function dlAgentCSV(){
+  if(!agents.length){toast('Sin agentes para exportar','error');return;}
+  const rows=[['agent-id','full-name','start-time','end-time','segment','break1','break2','lunch'],...agents.map(a=>[a.id,a.name,a.start,a.end,a.segment,a.break1,a.break2,a.lunch])];
+  const csv=rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='agent_data.csv';a.click();URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════
+// COPY URL
+// ═══════════════════════════════════════
+function copyUrl(id){
+  const txt=document.getElementById(id).textContent;
+  if(txt.includes('primero')){toast('Publicá los datos primero','error');return;}
+  navigator.clipboard.writeText(txt).then(()=>toast('URL copiada ✓','success')).catch(()=>{
+    const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('URL copiada ✓','success');
+  });
+}
+
+// DRAG & DROP on upload zone
+const uz=document.getElementById('uploadZone');
+uz.addEventListener('dragover',e=>{e.preventDefault();uz.classList.add('drag');});
+uz.addEventListener('dragleave',()=>uz.classList.remove('drag'));
+uz.addEventListener('drop',e=>{
+  e.preventDefault();uz.classList.remove('drag');
+  const f=e.dataTransfer.files[0];
+  if(f) loadAgentFile({target:{files:e.dataTransfer.files}});
+});
+</script>
+</body>
+</html>
