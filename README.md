@@ -217,7 +217,7 @@ The following analyses were conducted using simulated data from the week of **Ja
 📦 wfm-dashboard-honda
  ┣ 📊 WFM_Honda_ServiceDesk.pbix     # Power BI report file
  ┣ 📄 DAX_Measures.md                # All DAX measures documented
- ┣ 📁 screenshots/
+ ┣ 📁 images/
  ┃ ┣ 🖼️ sla-report.png               # SLA metrics dashboard
  ┃ ┗ 🖼️ abs-report.png               # Absenteeism dashboard
  ┗ 📄 README.md
